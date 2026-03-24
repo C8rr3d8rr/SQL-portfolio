@@ -1,0 +1,71 @@
+
+Detector de valores nullos
+
+```
+SELECT
+  SUM(CASE WHEN Periodo IS NULL OR trim(Periodo) = '' THEN 1 ELSE 0 END) AS nulos_Periodo,
+  SUM(CASE WHEN clicks IS NULL THEN 1 ELSE 0 END) AS nulos_Clicks,
+  SUM(CASE WHEN registros_in IS NULL THEN 1 ELSE 0 END) AS nulos_Registros_IN,
+  SUM(CASE WHEN primer_depósito_in IS NULL THEN 1 ELSE 0 END) AS nulos_Primer_deposito_IN,
+  SUM(CASE WHEN total_depositado_in IS NULL THEN 1 ELSE 0 END) AS nulos_Total_depositado_IN,
+  SUM(CASE WHEN persona_que_apostaron_in IS NULL THEN 1 ELSE 0 END) AS nulos_Personas_que_apostaron_IN,
+  SUM(CASE WHEN total_depositado_in IS NULL THEN 1 ELSE 0 END) AS nulos_Total_apostado,
+  SUM(CASE WHEN net_revenue_in IS NULL THEN 1 ELSE 0 END) AS nulos_Net_revenue_IN
+FROM pruebaSQL;
+```
+
+Estadisitica Basica (MAX, MIN, AVG)
+
+```
+SELECT
+  MIN(clicks) AS min_Clicks, MAX(clicks) AS max_Clicks, AVG(clicks) AS avg_Clicks, SUM(clicks) AS sum_Clicks,
+  MIN(registros_in) AS min_Registros_IN, MAX(registros_in) AS max_Registros_IN, AVG(registros_in) AS avg_Registros_IN, SUM(registros_in) AS sum_Registros_IN,
+  MIN(primer_depósito_in) AS min_Primer_deposito_IN, MAX(primer_depósito_in) AS max_Primer_deposito_IN, AVG(primer_depósito_in) AS avg_Primer_deposito_IN, SUM(primer_depósito_in) AS sum_Primer_deposito_IN,
+  MIN(total_depositado_in) AS min_Total_depositado_IN, MAX(total_depositado_in) AS max_Total_depositado_IN, AVG(total_depositado_in) AS avg_Total_depositado_IN, SUM(total_depositado_in) AS sum_Total_depositado_IN,
+  MIN(persona_que_apostaron_in) AS min_Personas_que_apostaron_IN, MAX(persona_que_apostaron_in) AS max_Personas_que_apostaron_IN, AVG(persona_que_apostaron_in) AS avg_Personas_que_apostaron_IN, SUM(persona_que_apostaron_in) AS sum_Personas_que_apostaron_IN,
+  MIN(total_apostado) AS min_Total_apostado, MAX(total_apostado) AS max_Total_apostado, AVG(total_apostado) AS avg_Total_apostado, SUM(total_apostado) AS sum_Total_apostado,
+  MIN(net_revenue_in) AS min_Net_revenue_IN, MAX(net_revenue_in) AS max_Net_revenue_IN, AVG(net_revenue_in) AS avg_Net_revenue_IN, SUM(net_revenue_in) AS sum_Net_revenue_IN
+FROM pruebaSQL;
+```
+
+Verificar duplicados por periodo
+  
+```
+SELECT Periodo, COUNT(*) AS veces_repetido
+FROM pruebaSQL
+GROUP BY Periodo
+HAVING COUNT(*) > 1;
+```
+
+Top 10 por periodo
+  
+```
+SELECT Periodo, Net_revenue_IN
+FROM pruebaSQL
+WHERE Net_revenue_IN IS NOT NULL
+ORDER BY Net_revenue_IN DESC
+LIMIT 10;
+```
+
+Promedio mensual
+
+```
+SELECT 
+  substr(Periodo, 1, 7) AS Mes,
+  AVG(Net_revenue_IN) AS Promedio_NetRevenue,
+  AVG(Total_depositado_IN) AS Promedio_TotalDeposito,
+  AVG(Total_apostado) AS Promedio_TotalApostado
+FROM pruebaSQL
+GROUP BY Mes
+ORDER BY Mes;
+```
+
+Tasa de conversion
+
+```
+SELECT
+  SUM(Registros_IN) AS total_registros,
+  SUM(primer_depósito_in) AS total_primer_depositos,
+  ROUND(SUM(primer_depósito_in) * 100.0 / SUM(Registros_IN), 2) AS tasa_conversion_depositos
+FROM pruebaSQL;
+```
