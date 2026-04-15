@@ -1,0 +1,65 @@
+-- ============================================
+-- 1. CREACIÓN DE LA TABLA
+-- ============================================
+
+CREATE TABLE ventas_sql (
+    fecha DATE,
+    segmento VARCHAR(50),
+    cliente VARCHAR(100),
+    producto VARCHAR(100),
+    sub_producto VARCHAR(100),
+    director VARCHAR(100),
+    lider_comercial VARCHAR(100),
+    tx_mes INT,
+    tpv_mes NUMERIC(15,2),
+    ticket_medio NUMERIC(15,2),
+    utilidad NUMERIC(15,2)
+);
+
+
+-- ============================================
+-- 2. GENERACIÓN DE DATOS SIMULADOS
+-- ============================================
+
+INSERT INTO ventas_sql
+SELECT 
+    fecha,
+    
+    -- Segmento
+    (ARRAY['Retail', 'Pyme', 'Corporativo'])[floor(random()*3+1)] AS segmento,
+    
+    -- Cliente
+    'Cliente_' || floor(random()*100+1) AS cliente,
+    
+    -- Producto
+    (ARRAY['Credito', 'Debito', 'QR', 'Transferencia'])[floor(random()*4+1)] AS producto,
+    
+    -- Subproducto
+    (ARRAY['Online', 'Fisico', 'Mixto'])[floor(random()*3+1)] AS sub_producto,
+    
+    -- Director
+    (ARRAY['Director A', 'Director B', 'Director C'])[floor(random()*3+1)] AS director,
+    
+    -- Líder comercial
+    (ARRAY['Lider 1', 'Lider 2', 'Lider 3'])[floor(random()*3+1)] AS lider_comercial,
+    
+    -- Transacciones del mes
+    floor(random()*500 + 50) AS tx_mes,
+    
+    -- TPV mensual
+    round((random()*10000000 + 500000)::numeric, 2) AS tpv_mes,
+    
+    -- Ticket medio
+    round((random()*200000 + 10000)::numeric, 2) AS ticket_medio,
+    
+    -- Utilidad (entre 10% y 30% del TPV)
+    round(
+        (random()*0.2 + 0.1) * (random()*10000000 + 500000),
+        2
+    ) AS utilidad
+
+FROM generate_series(
+    '2025-01-01'::date,
+    CURRENT_DATE,
+    '1 day'
+) AS fecha;
