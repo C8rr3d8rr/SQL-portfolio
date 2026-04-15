@@ -1,0 +1,99 @@
+-- ============================================
+-- BASE: INGRESOS Y UTILIDAD POR PRODUCTO
+-- ============================================
+
+SELECT 
+    producto,
+    SUM(tpv_mes) AS total_ingresos,
+    SUM(utilidad) AS total_utilidad
+FROM ventas_sql
+GROUP BY producto;
+
+
+-- ============================================
+-- MARGEN DE RENTABILIDAD
+-- ============================================
+
+SELECT 
+    producto,
+    SUM(tpv_mes) AS ingresos,
+    SUM(utilidad) AS utilidad,
+    ROUND(SUM(utilidad) / NULLIF(SUM(tpv_mes),0), 2) AS margen
+FROM ventas_sql
+GROUP BY producto;
+
+-- ============================================
+-- UMBRALES DE NEGOCIO
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        producto,
+        SUM(tpv_mes) AS ingresos,
+        SUM(utilidad) AS utilidad
+    FROM ventas_sql
+    GROUP BY producto
+)
+
+SELECT 
+    AVG(ingresos) AS avg_ingresos,
+    AVG(utilidad) AS avg_utilidad
+FROM base;
+
+
+-- ============================================
+-- SEGMENTACIÓN ESTRATÉGICA
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        producto,
+        SUM(tpv_mes) AS ingresos,
+        SUM(utilidad) AS utilidad
+    FROM ventas_sql
+    GROUP BY producto
+),
+
+promedios AS (
+    SELECT 
+        AVG(ingresos) AS avg_ingresos,
+        AVG(utilidad) AS avg_utilidad
+    FROM base
+)
+
+SELECT 
+    b.producto,
+    b.ingresos,
+    b.utilidad,
+    
+    CASE 
+        WHEN b.ingresos >= p.avg_ingresos AND b.utilidad >= p.avg_utilidad THEN '🔥 Top Performer'
+        WHEN b.ingresos < p.avg_ingresos AND b.utilidad >= p.avg_utilidad THEN '💰 Alta Rentabilidad'
+        WHEN b.ingresos >= p.avg_ingresos AND b.utilidad < p.avg_utilidad THEN '⚠️ Ineficiente'
+        ELSE '❌ Bajo Desempeño'
+    END AS segmento
+
+FROM base b
+CROSS JOIN promedios p
+ORDER BY ingresos DESC;
+
+
+
+-- ============================================
+-- MATRIZ DE RENTABILIDAD
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        producto,
+        SUM(tpv_mes) AS ingresos,
+        SUM(utilidad) AS utilidad
+    FROM ventas_sql
+    GROUP BY producto
+)
+
+SELECT 
+    producto,
+    ingresos,
+    utilidad
+FROM base;
