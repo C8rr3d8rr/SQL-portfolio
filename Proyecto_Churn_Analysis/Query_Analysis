@@ -1,0 +1,109 @@
+-- ============================================
+-- ÚLTIMA ACTIVIDAD DEL CLIENTE
+-- ============================================
+
+SELECT 
+    cliente,
+    MAX(fecha) AS ultima_actividad
+FROM ventas_sql
+GROUP BY cliente;
+
+
+-- ============================================
+-- DÍAS SIN ACTIVIDAD
+-- ============================================
+
+SELECT 
+    cliente,
+    MAX(fecha) AS ultima_actividad,
+    CURRENT_DATE - MAX(fecha) AS dias_inactivos
+FROM ventas_sql
+GROUP BY cliente;
+
+-- ============================================
+-- CLASIFICACIÓN DE CLIENTES (CHURN)
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        MAX(fecha) AS ultima_actividad,
+        CURRENT_DATE - MAX(fecha) AS dias_inactivos
+    FROM ventas_sql
+    GROUP BY cliente
+)
+
+SELECT 
+    cliente,
+    dias_inactivos,
+    
+    CASE 
+        WHEN dias_inactivos <= 30 THEN 'Activo 🟢'
+        WHEN dias_inactivos BETWEEN 31 AND 60 THEN 'En Riesgo 🟡'
+        ELSE 'Churn 🔴'
+    END AS estado_cliente
+
+FROM base;
+
+
+-- ============================================
+-- TASA DE CHURN
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        CURRENT_DATE - MAX(fecha) AS dias_inactivos
+    FROM ventas_sql
+    GROUP BY cliente
+),
+
+clasificacion AS (
+    SELECT 
+        cliente,
+        CASE 
+            WHEN dias_inactivos > 60 THEN 1
+            ELSE 0
+        END AS es_churn
+    FROM base
+)
+
+SELECT 
+    COUNT(*) AS total_clientes,
+    SUM(es_churn) AS clientes_churn,
+    ROUND(100.0 * SUM(es_churn) / COUNT(*), 2) AS tasa_churn_pct
+FROM clasificacion;
+
+
+-- ============================================
+-- CHURN POR SEGMENTO
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        segmento,
+        CURRENT_DATE - MAX(fecha) AS dias_inactivos
+    FROM ventas_sql
+    GROUP BY cliente, segmento
+),
+
+clasificacion AS (
+    SELECT 
+        segmento,
+        cliente,
+        CASE 
+            WHEN dias_inactivos > 60 THEN 1
+            ELSE 0
+        END AS es_churn
+    FROM base
+)
+
+SELECT 
+    segmento,
+    COUNT(*) AS clientes,
+    SUM(es_churn) AS churn,
+    ROUND(100.0 * SUM(es_churn) / COUNT(*), 2) AS churn_pct
+FROM clasificacion
+GROUP BY segmento
+ORDER BY churn_pct DESC;
