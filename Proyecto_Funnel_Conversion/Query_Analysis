@@ -1,0 +1,124 @@
+-- ============================================
+-- BASE DEL FUNNEL POR CLIENTE
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        COUNT(*) AS dias_activos,
+        SUM(tx_mes) AS total_tx,
+        SUM(tpv_mes) AS total_tpv,
+        SUM(utilidad) AS total_utilidad
+    FROM ventas_sql
+    GROUP BY cliente
+)
+SELECT * FROM base;
+
+
+-- ============================================
+-- CLASIFICACIÓN DEL FUNNEL
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        COUNT(*) AS dias_activos,
+        SUM(tx_mes) AS total_tx,
+        SUM(tpv_mes) AS total_tpv,
+        SUM(utilidad) AS total_utilidad
+    FROM ventas_sql
+    GROUP BY cliente
+)
+SELECT 
+    cliente,
+    CASE 
+        WHEN dias_activos > 0 THEN '1. Activo 👀'
+    END AS etapa_1,
+    CASE 
+        WHEN total_tx > 0 THEN '2. Transacciona 🛍️'
+    END AS etapa_2,
+    CASE 
+        WHEN total_tpv > 0 THEN '3. Genera Valor 💰'
+    END AS etapa_3,
+    CASE 
+        WHEN total_utilidad > 0 THEN '4. Rentable 🏆'
+    END AS etapa_4
+FROM base;
+
+-- ============================================
+-- USUARIOS POR ETAPA DEL FUNNEL
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        SUM(tx_mes) AS total_tx,
+        SUM(tpv_mes) AS total_tpv,
+        SUM(utilidad) AS total_utilidad
+    FROM ventas_sql
+    GROUP BY cliente
+)
+SELECT 
+    COUNT(DISTINCT cliente) AS etapa_1_activos,
+    COUNT(DISTINCT CASE WHEN total_tx > 0 THEN cliente END) AS etapa_2_transaccionan, 
+    COUNT(DISTINCT CASE WHEN total_tpv > 0 THEN cliente END) AS etapa_3_valor,  
+    COUNT(DISTINCT CASE WHEN total_utilidad > 0 THEN cliente END) AS etapa_4_rentables
+FROM base;
+
+
+-- ============================================
+-- TASAS DE CONVERSIÓN
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        SUM(tx_mes) AS total_tx,
+        SUM(tpv_mes) AS total_tpv,
+        SUM(utilidad) AS total_utilidad
+    FROM ventas_sql
+    GROUP BY cliente
+),
+conteo AS (
+    SELECT 
+        COUNT(*) AS activos,
+        COUNT(CASE WHEN total_tx > 0 THEN 1 END) AS transaccionan,
+        COUNT(CASE WHEN total_tpv > 0 THEN 1 END) AS generan_valor,
+        COUNT(CASE WHEN total_utilidad > 0 THEN 1 END) AS rentables
+    FROM base
+)
+SELECT 
+    activos,
+    transaccionan,
+    generan_valor,
+    rentables,
+    ROUND(100.0 * transaccionan / activos, 2) AS conv_1_2,
+    ROUND(100.0 * generan_valor / transaccionan, 2) AS conv_2_3,
+    ROUND(100.0 * rentables / generan_valor, 2) AS conv_3_4
+FROM conteo;
+
+-- ============================================
+-- FUNNEL EN FORMATO VERTICAL (IDEAL PARA BI)
+-- ============================================
+
+WITH base AS (
+    SELECT 
+        cliente,
+        SUM(tx_mes) AS total_tx,
+        SUM(tpv_mes) AS total_tpv,
+        SUM(utilidad) AS total_utilidad
+    FROM ventas_sql
+    GROUP BY cliente
+),
+funnel AS (
+    SELECT '1. Activos 👀' AS etapa, COUNT(*) AS usuarios FROM base
+    UNION ALL
+    SELECT '2. Transaccionan 🛍️', COUNT(*) FROM base WHERE total_tx > 0
+    UNION ALL
+    SELECT '3. Generan Valor 💰', COUNT(*) FROM base WHERE total_tpv > 0
+    UNION ALL
+    SELECT '4. Rentables 🏆', COUNT(*) FROM base WHERE total_utilidad > 0
+)
+SELECT * FROM funnel;
+
+
