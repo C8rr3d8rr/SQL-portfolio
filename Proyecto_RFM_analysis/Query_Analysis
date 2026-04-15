@@ -1,0 +1,134 @@
+-- ============================================
+-- BASE DE CLIENTES (AGREGACIÓN)
+-- ============================================
+
+SELECT 
+    cliente,
+    MAX(fecha) AS ultima_compra,
+    COUNT(*) AS frecuencia,
+    SUM(tpv_mes) AS valor_monetario
+FROM ventas_sql
+GROUP BY cliente;
+
+-- ============================================
+-- RECENCY (DÍAS DESDE ÚLTIMA COMPRA)
+-- ============================================
+
+SELECT 
+    cliente,
+    CURRENT_DATE - MAX(fecha) AS recency,
+    COUNT(*) AS frecuencia,
+    SUM(tpv_mes) AS valor_monetario
+FROM ventas_sql
+GROUP BY cliente;
+
+-- ============================================
+-- SCORING RFM
+-- ============================================
+
+WITH rfm_base AS (
+    SELECT 
+        cliente,
+        CURRENT_DATE - MAX(fecha) AS recency,
+        COUNT(*) AS frequency,
+        SUM(tpv_mes) AS monetary
+    FROM ventas_sql
+    GROUP BY cliente
+)
+
+SELECT 
+    cliente,
+    
+    -- RECENCY (menor = mejor)
+    NTILE(5) OVER (ORDER BY recency DESC) AS r_score,
+    
+    -- FREQUENCY (mayor = mejor)
+    NTILE(5) OVER (ORDER BY frequency) AS f_score,
+    
+    -- MONETARY (mayor = mejor)
+    NTILE(5) OVER (ORDER BY monetary) AS m_score
+
+FROM rfm_base;
+
+-- ============================================
+-- SEGMENTACIÓN RFM
+-- ============================================
+
+WITH rfm_base AS (
+    SELECT 
+        cliente,
+        CURRENT_DATE - MAX(fecha) AS recency,
+        COUNT(*) AS frequency,
+        SUM(tpv_mes) AS monetary
+    FROM ventas_sql
+    GROUP BY cliente
+),
+
+rfm_scores AS (
+    SELECT 
+        cliente,
+        NTILE(5) OVER (ORDER BY recency DESC) AS r_score,
+        NTILE(5) OVER (ORDER BY frequency) AS f_score,
+        NTILE(5) OVER (ORDER BY monetary) AS m_score
+    FROM rfm_base
+)
+
+SELECT 
+    cliente,
+    r_score,
+    f_score,
+    m_score,
+    
+    CASE 
+        WHEN r_score >= 4 AND f_score >= 4 AND m_score >= 4 THEN 'VIP 🏆'
+        WHEN r_score >= 3 AND f_score >= 3 THEN 'Leales ❤️'
+        WHEN r_score <= 2 AND f_score >= 3 THEN 'En Riesgo ⚠️'
+        ELSE 'Perdidos ❌'
+    END AS segmento
+
+FROM rfm_scores;
+
+-- ============================================
+-- RESUMEN POR SEGMENTO
+-- ============================================
+
+WITH rfm_base AS (
+    SELECT 
+        cliente,
+        CURRENT_DATE - MAX(fecha) AS recency,
+        COUNT(*) AS frequency,
+        SUM(tpv_mes) AS monetary
+    FROM ventas_sql
+    GROUP BY cliente
+),
+
+rfm_scores AS (
+    SELECT 
+        cliente,
+        NTILE(5) OVER (ORDER BY recency DESC) AS r_score,
+        NTILE(5) OVER (ORDER BY frequency) AS f_score,
+        NTILE(5) OVER (ORDER BY monetary) AS m_score
+    FROM rfm_base
+),
+
+rfm_segmentado AS (
+    SELECT 
+        *,
+        CASE 
+            WHEN r_score >= 4 AND f_score >= 4 AND m_score >= 4 THEN 'VIP'
+            WHEN r_score >= 3 AND f_score >= 3 THEN 'Leales'
+            WHEN r_score <= 2 AND f_score >= 3 THEN 'En Riesgo'
+            ELSE 'Perdidos'
+        END AS segmento
+    FROM rfm_scores
+)
+
+SELECT 
+    segmento,
+    COUNT(*) AS clientes,
+    ROUND(AVG(r_score),2) AS avg_r,
+    ROUND(AVG(f_score),2) AS avg_f,
+    ROUND(AVG(m_score),2) AS avg_m
+FROM rfm_segmentado
+GROUP BY segmento
+ORDER BY clientes DESC;
