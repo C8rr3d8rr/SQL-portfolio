@@ -1,0 +1,53 @@
+-- ============================================
+--               Matriz Boston
+-- ============================================
+
+WITH base AS (
+    SELECT
+        producto,
+        EXTRACT(YEAR FROM fecha) AS anio,
+        SUM(tpv_mes) AS ventas
+    FROM proyectos_dashboard.indicadores_clientes_comercial
+    WHERE EXTRACT(YEAR FROM fecha) IN (2025, 2026)
+    GROUP BY 1,2
+),
+ventas_por_producto AS (
+    SELECT
+        producto,
+        SUM(CASE WHEN anio = 2025 THEN ventas ELSE 0 END) AS ventas_2025,
+        SUM(CASE WHEN anio = 2026 THEN ventas ELSE 0 END) AS ventas_2026
+    FROM base
+    GROUP BY producto
+),
+metricas AS (
+    SELECT
+        producto,
+        ventas_2025,
+        ventas_2026,       
+        CASE 
+            WHEN ventas_2025 = 0 THEN NULL
+            ELSE (ventas_2026 - ventas_2025) * 1.0 / ventas_2025
+        END AS crecimiento,
+        ventas_2026 * 1.0 / SUM(ventas_2026) OVER () AS participacion
+    FROM ventas_por_producto
+),
+promedios AS (
+    SELECT
+        AVG(crecimiento) AS avg_crecimiento,
+        AVG(participacion) AS avg_participacion
+    FROM metricas
+)
+SELECT
+    m.*,
+    CASE 
+        WHEN m.crecimiento >= p.avg_crecimiento 
+             AND m.participacion >= p.avg_participacion THEN '⭐ Estrella'
+        WHEN m.crecimiento < p.avg_crecimiento 
+             AND m.participacion >= p.avg_participacion THEN '💰 Vaca'
+        WHEN m.crecimiento >= p.avg_crecimiento 
+             AND m.participacion < p.avg_participacion THEN '❓ Interrogante'
+        ELSE '🐶 Perro'
+    END AS clasificacion_bcg
+FROM metricas m
+CROSS JOIN promedios p
+ORDER BY ventas_2026 DESC;
