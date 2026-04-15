@@ -1,0 +1,154 @@
+-- ============================================
+-- COHORTE: PRIMERA FECHA DE COMPRA POR CLIENTE
+-- ============================================
+
+WITH primera_compra AS (
+    SELECT 
+        cliente,
+        MIN(fecha) AS primera_fecha
+    FROM ventas_sql
+    GROUP BY cliente
+)
+
+SELECT * FROM primera_compra;
+
+-- ============================================
+-- ASIGNAR MES DE COHORTE
+-- ============================================
+
+WITH primera_compra AS (
+    SELECT 
+        cliente,
+        MIN(fecha) AS primera_fecha
+    FROM ventas_sql
+    GROUP BY cliente
+)
+
+SELECT 
+    v.cliente,
+    DATE_TRUNC('month', pc.primera_fecha) AS cohorte_mes,
+    DATE_TRUNC('month', v.fecha) AS mes_actividad
+FROM ventas_sql v
+JOIN primera_compra pc 
+    ON v.cliente = pc.cliente;
+
+-- ============================================
+-- DIFERENCIA DE MESES (RETENCIÓN)
+-- ============================================
+
+WITH primera_compra AS (
+    SELECT 
+        cliente,
+        MIN(fecha) AS primera_fecha
+    FROM ventas_sql
+    GROUP BY cliente
+),
+
+cohortes AS (
+    SELECT 
+        v.cliente,
+        DATE_TRUNC('month', pc.primera_fecha) AS cohorte_mes,
+        DATE_TRUNC('month', v.fecha) AS mes_actividad
+    FROM ventas_sql v
+    JOIN primera_compra pc 
+        ON v.cliente = pc.cliente
+)
+
+SELECT 
+    cliente,
+    cohorte_mes,
+    mes_actividad,
+    EXTRACT(YEAR FROM AGE(mes_actividad, cohorte_mes)) * 12 +
+    EXTRACT(MONTH FROM AGE(mes_actividad, cohorte_mes)) AS mes_numero
+FROM cohortes;
+
+-- ============================================
+-- TABLA DE RETENCIÓN (COHORT ANALYSIS)
+-- ============================================
+
+WITH primera_compra AS (
+    SELECT 
+        cliente,
+        MIN(fecha) AS primera_fecha
+    FROM ventas_sql
+    GROUP BY cliente
+),
+
+cohortes AS (
+    SELECT 
+        v.cliente,
+        DATE_TRUNC('month', pc.primera_fecha) AS cohorte_mes,
+        DATE_TRUNC('month', v.fecha) AS mes_actividad
+    FROM ventas_sql v
+    JOIN primera_compra pc 
+        ON v.cliente = pc.cliente
+),
+
+retencion AS (
+    SELECT 
+        cohorte_mes,
+        EXTRACT(YEAR FROM AGE(mes_actividad, cohorte_mes)) * 12 +
+        EXTRACT(MONTH FROM AGE(mes_actividad, cohorte_mes)) AS mes_numero,
+        COUNT(DISTINCT cliente) AS clientes
+    FROM cohortes
+    GROUP BY 1,2
+)
+
+SELECT * 
+FROM retencion
+ORDER BY cohorte_mes, mes_numero;
+
+
+
+-- ============================================
+-- RETENCIÓN EN %
+-- ============================================
+
+WITH primera_compra AS (
+    SELECT 
+        cliente,
+        MIN(fecha) AS primera_fecha
+    FROM ventas_sql
+    GROUP BY cliente
+),
+
+cohortes AS (
+    SELECT 
+        v.cliente,
+        DATE_TRUNC('month', pc.primera_fecha) AS cohorte_mes,
+        DATE_TRUNC('month', v.fecha) AS mes_actividad
+    FROM ventas_sql v
+    JOIN primera_compra pc 
+        ON v.cliente = pc.cliente
+),
+
+retencion AS (
+    SELECT 
+        cohorte_mes,
+        EXTRACT(YEAR FROM AGE(mes_actividad, cohorte_mes)) * 12 +
+        EXTRACT(MONTH FROM AGE(mes_actividad, cohorte_mes)) AS mes_numero,
+        COUNT(DISTINCT cliente) AS clientes
+    FROM cohortes
+    GROUP BY 1,2
+),
+
+cohorte_size AS (
+    SELECT 
+        cohorte_mes,
+        MAX(clientes) AS total_clientes
+    FROM retencion
+    WHERE mes_numero = 0
+    GROUP BY cohorte_mes
+)
+
+SELECT 
+    r.cohorte_mes,
+    r.mes_numero,
+    r.clientes,
+    ROUND(100.0 * r.clientes / cs.total_clientes, 2) AS retencion_pct
+FROM retencion r
+JOIN cohorte_size cs 
+    ON r.cohorte_mes = cs.cohorte_mes
+ORDER BY 1,2;
+
+
